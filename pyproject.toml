@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "r0nt"
+version = "0.1.0"
+description = "Tamper-evident backup verification system"
+requires-python = ">=3.11"
+dependencies = [
+    "cryptography>=41.0",
+    "platformdirs>=4.0",
+    "tomli_w>=1.0",
+]
+
+[project.scripts]
+r0nt = "r0nt.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

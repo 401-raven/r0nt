@@ -1,0 +1,197 @@
+{
+  "timestamp": "2026-10-18T07:34:30Z",
+  "total_scenarios": 13,
+  "in_scope_scenarios": 11,
+  "in_scope_detected": 11,
+  "false_positives": {
+    "cycles_tested": 20,
+    "false_positive_findings": 0,
+    "false_positive_rate": 0.0,
+    "duration_ms": 1075.11
+  },
+  "scenarios": [
+    {
+      "scenario_id": "T-60.01",
+      "threat_capability": "Modifies backup data",
+      "attack_description": "Attacker or bit-rot flips 1 bit in a stored content chunk",
+      "target_outcome": "Detect corruption and identify exact chunk hash",
+      "detected": true,
+      "detection_mechanism": "SHA-256 chunk hash comparison during full verification",
+      "findings": [
+        "chunk_modified"
+      ],
+      "duration_ms": 127.75,
+      "notes": "Pinpoints exact chunk hash mismatch with non-zero exit code."
+    },
+    {
+      "scenario_id": "T-60.02",
+      "threat_capability": "Modifies backup data (deletion)",
+      "attack_description": "Attacker deletes a chunk file from storage",
+      "target_outcome": "Detect missing chunk and name chunk hash",
+      "detected": true,
+      "detection_mechanism": "ChunkStore presence check during verification",
+      "findings": [
+        "chunk_missing"
+      ],
+      "duration_ms": 73.12,
+      "notes": "Detected immediately in both quick and full modes."
+    },
+    {
+      "scenario_id": "T-60.03",
+      "threat_capability": "Deletes a backup",
+      "attack_description": "Attacker deletes intermediate snapshot 1 to purge historical records",
+      "target_outcome": "Detect deletion via hash chain gap and witness DB cross-check",
+      "detected": true,
+      "detection_mechanism": "validate_chain cross-check with witness DB records",
+      "findings": [
+        "snapshot_missing",
+        "chain_broken"
+      ],
+      "duration_ms": 92.14,
+      "notes": "Missing manifest in repo recorded in witness DB is detected as chain_broken."
+    },
+    {
+      "scenario_id": "T-60.04",
+      "threat_capability": "Rolls back to an older snapshot",
+      "attack_description": "Attacker reverts repository head from snapshot #3 back to snapshot #2",
+      "target_outcome": "Detect rollback via sequence head discrepancy against witness DB",
+      "detected": true,
+      "detection_mechanism": "validate_chain checks repo head seq against witness DB latest sequence",
+      "findings": [
+        "snapshot_missing",
+        "rolled_back"
+      ],
+      "duration_ms": 121.77,
+      "notes": "Caught because witness DB head (seq 3) is ahead of repository head (seq 2)."
+    },
+    {
+      "scenario_id": "T-60.05",
+      "threat_capability": "Edits manifest without key",
+      "attack_description": "Attacker alters file metadata in manifest JSON without valid Ed25519 signature",
+      "target_outcome": "Detect invalid cryptographic signature and hash mismatch",
+      "detected": true,
+      "detection_mechanism": "Ed25519 signature verification and manifest hash comparison",
+      "findings": [
+        "signature_invalid",
+        "manifest_modified",
+        "manifest_modified",
+        "manifest_modified"
+      ],
+      "duration_ms": 74.55,
+      "notes": "Signature verification fails immediately upon inspecting manifest."
+    },
+    {
+      "scenario_id": "T-60.06",
+      "threat_capability": "Rewrites manifest and hashes together",
+      "attack_description": "Compromised backup server updates chunk and internal hashes but lacks signing key",
+      "target_outcome": "Detect signature failure and mismatch against witness DB",
+      "detected": true,
+      "detection_mechanism": "Ed25519 signature verification against pinned public key",
+      "findings": [
+        "signature_invalid",
+        "manifest_modified",
+        "manifest_modified",
+        "manifest_modified"
+      ],
+      "duration_ms": 79.55,
+      "notes": "Even if all internal hashes are self-consistent, signature verification fails."
+    },
+    {
+      "scenario_id": "T-60.07",
+      "threat_capability": "Compromised server with separate witness",
+      "attack_description": "Attacker signs forged manifest with an unauthorized key on compromised server",
+      "target_outcome": "Detect signature invalidity with pinned key and manifest mismatch with witness DB",
+      "detected": true,
+      "detection_mechanism": "Pinned public key verification and witness DB hash matching",
+      "findings": [
+        "signature_invalid",
+        "manifest_modified",
+        "manifest_modified",
+        "manifest_modified"
+      ],
+      "duration_ms": 84.79,
+      "notes": "Independent witness DB prevents server from masquerading altered history."
+    },
+    {
+      "scenario_id": "T-60.08",
+      "threat_capability": "Steals signing key",
+      "attack_description": "Attacker uses stolen private key to sign an injected malicious snapshot in repo",
+      "target_outcome": "Detect untracked manifest not present in independent witness DB",
+      "detected": true,
+      "detection_mechanism": "Witness DB cross-check detects repo snapshot missing from witness ledger (file_added finding)",
+      "findings": [
+        "file_added"
+      ],
+      "duration_ms": 100.48,
+      "notes": "Detected as file_added / untracked manifest by witness DB cross-check. Known limit: if stolen key is used during authorized schedule, cryptographic signature verifies."
+    },
+    {
+      "scenario_id": "T-60.09",
+      "threat_capability": "Forges witness DB row",
+      "attack_description": "Attacker injects an unauthorized manifest row into SQLite witness DB",
+      "target_outcome": "Detect HMAC row MAC invalidity",
+      "detected": true,
+      "detection_mechanism": "HMAC-SHA256 row MAC verification flags row tampering (manifest_modified finding)",
+      "findings": [
+        "manifest_modified",
+        "snapshot_missing",
+        "rolled_back"
+      ],
+      "duration_ms": 89.94,
+      "notes": "Row MAC check flags tamper before any snapshot processing occurs."
+    },
+    {
+      "scenario_id": "T-60.10",
+      "threat_capability": "Backs up already-encrypted data",
+      "attack_description": "Ransomware encrypts client files into high-entropy blobs with .locked extension",
+      "target_outcome": "Heuristic detection of entropy anomaly, extension changes, and change spike",
+      "detected": true,
+      "detection_mechanism": "Ransomware heuristics (entropy jump, extension change, change spike)",
+      "findings": [
+        "change_spike",
+        "extension_change"
+      ],
+      "duration_ms": 291.65,
+      "notes": "Cryptographic hash verify alone MISSES this (hashes match corrupted data). Ransomware heuristics catch the transition."
+    },
+    {
+      "scenario_id": "T-60.11",
+      "threat_capability": "Tampered anchor proof",
+      "attack_description": "Attacker modifies external anchor proof BLOB in witness database",
+      "target_outcome": "Detect anchor verification mismatch against backend attestation",
+      "detected": true,
+      "detection_mechanism": "verify_anchors checks backend attestation against proof and batch root",
+      "findings": [
+        "anchor_mismatch"
+      ],
+      "duration_ms": 97.96,
+      "notes": "Detected as anchor_mismatch due to invalid proof bytes."
+    },
+    {
+      "scenario_id": "T-60.12",
+      "threat_capability": "Compromises the verifier",
+      "attack_description": "Attacker gains root/admin on verifier host and patches binary to return exit code 0",
+      "target_outcome": "Out of scope for software tamper-evidence; requires operational isolation",
+      "detected": false,
+      "detection_mechanism": "Out of scope (requires air-gapped / dedicated separate verifier host)",
+      "findings": [
+        "out_of_scope"
+      ],
+      "duration_ms": 0.0,
+      "notes": "Software cannot verify itself on a compromised host. Mitigated by hosting verifier on an independent machine with read-only backup credentials."
+    },
+    {
+      "scenario_id": "T-60.13",
+      "threat_capability": "Physical storage failure",
+      "attack_description": "Storage drive experiences total hardware failure or unrecoverable sector loss",
+      "target_outcome": "Out of scope for integrity verifier; requires multi-site redundancy",
+      "detected": false,
+      "detection_mechanism": "Out of scope (requires hardware RAID / offsite replication)",
+      "findings": [
+        "out_of_scope"
+      ],
+      "duration_ms": 0.0,
+      "notes": "Tamper-evidence detects alteration and corruption; it does not replace redundancy. Requires 3-2-1 backup strategy."
+    }
+  ]
+}
